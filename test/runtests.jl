@@ -1,7 +1,7 @@
 ENV["GKSwstype"] = "100"
 
 using ITensorSiteKit, Test
-const dirs = []
+const dirs = ["base"]
 
 const FIG_BASE = joinpath(pkgdir(ITensorSiteKit), "docs", "src", "assets")
 const PATHS = Dict()
@@ -21,8 +21,8 @@ mkpath.(values(PATHS))
             @test false
         else
             for f in files
+                filepath = joinpath(dirpath, f)
                 @testset "$f" begin
-                    filepath = joinpath(dirpath, f)
                     @time begin
                         println("  Including $(filepath)")
                         include(filepath)
