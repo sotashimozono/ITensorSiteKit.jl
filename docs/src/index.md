@@ -1,7 +1,7 @@
-# MyModule.jl
+# ITensorSiteKit.jl
 
 ## Models
 
 ```@autodocs
-Modules = [MyModule]
+Modules = [ITensorSiteKit]
 ```
