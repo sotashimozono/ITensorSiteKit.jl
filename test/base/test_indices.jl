@@ -107,12 +107,88 @@ end
         @test hasqns(AuxInds(N, u1)[1])
     end
 
-    @testset "LinkInds QN carrier" begin
+    @testset "LinkInds has no QN-blocks form (dense only)" begin
+        # A uniform `space` on every link would give every bond of a QN-MPS
+        # the same accumulated sector, which is physically invalid (real
+        # QN-MPS links carry *different* sectors from flux flow). The
+        # QN-blocks method is removed; only `LinkInds(χ::Int, sites)` exists.
         sites = PhysInds(N; SiteType="S=1/2", conserve_qns=true)
-        links = LinkInds(u1, sites)
+        @test_throws MethodError LinkInds(u1, sites)
+
+        # Dense form is unaffected.
+        links = LinkInds(χ, sites)
         @test length(links) == N - 1
-        @test all(hasqns, links)
-        @test all(i -> dim(i) == 5, links)
-        @test all(i -> hastags(i, "Link"), links)
+        @test all(i -> !hasqns(i), links)
+        @test all(i -> dim(i) == χ, links)
+    end
+
+    @testset "dir kwarg on the QN-blocks path" begin
+        # Default is unchanged: `Index`'s own default (`Out`) for a QN space.
+        default_left, default_right = EnvInds(u1)
+        @test dir(default_left) == ITensors.Out
+        @test dir(default_right) == ITensors.Out
+
+        # A blocks-form caller can request the opposite arrow explicitly.
+        in_left, in_right = EnvInds(u1; dir=ITensors.In)
+        @test dir(in_left) == ITensors.In
+        @test dir(in_right) == ITensors.In
+        @test space(in_left) == u1 && space(in_right) == u1   # sectors intact
+        @test hastags(in_left, LeftEnvSite) && hastags(in_right, RightEnvSite)
+
+        # Same for AuxInds.
+        a_default_left, = AuxInds(u1)
+        @test dir(a_default_left) == ITensors.Out
+        a_left, a_right = AuxInds(u1; dir=ITensors.In)
+        @test dir(a_left) == ITensors.In && dir(a_right) == ITensors.In
+
+        # `dir` flows through the 3-arg (N-ignored) forms too.
+        @test dir(EnvInds(N, u1; dir=ITensors.In)[1]) == ITensors.In
+        @test dir(AuxInds(N, u1; dir=ITensors.In)[1]) == ITensors.In
+    end
+end
+
+@testset "Bond-derived (sim) env/aux index constructors" begin
+    # Real QN bonds with a real `dir`, from an actual QN-conserving MPS
+    # (not hand-rebuilt blocks).
+    qn_sites = siteinds("S=1/2", 4; conserve_qns=true)
+    qn_mps = random_mps(qn_sites, ["Up", "Dn", "Up", "Dn"])
+    qn_bonds = linkinds(qn_mps)
+    bl, br = qn_bonds[1], qn_bonds[end]
+
+    @testset "EnvInds(left_bond, right_bond)" begin
+        left, right = EnvInds(bl, br)
+        @test hasqns(left) && hasqns(right)
+        @test space(left) == space(bl)          # sectors inherited verbatim
+        @test space(right) == space(br)
+        @test dir(left) == dir(bl)               # arrow preserved
+        @test dir(right) == dir(br)
+        @test hastags(left, LeftEnvSite) && hastags(right, RightEnvSite)
+        @test !hastags(left, "Link") && !hastags(right, "Link")  # re-tagged, not tagged-on-top
+    end
+
+    @testset "AuxInds(left_bond, right_bond)" begin
+        left, right = AuxInds(bl, br)
+        @test hasqns(left) && hasqns(right)
+        @test space(left) == space(bl)
+        @test space(right) == space(br)
+        @test dir(left) == dir(bl)
+        @test dir(right) == dir(br)
+        @test hastags(left, LeftAuxSite) && hastags(right, RightAuxSite)
+        @test !hastags(left, "Link") && !hastags(right, "Link")
+    end
+
+    @testset "dense bond -> dense env/aux" begin
+        di = Index(χ, "Link,l=100")
+        dj = Index(χ, "Link,l=101")
+
+        el, er = EnvInds(di, dj)
+        @test !hasqns(el) && !hasqns(er)
+        @test dim(el) == χ && dim(er) == χ
+        @test dir(el) == dir(di) && dir(er) == dir(dj)
+        @test hastags(el, LeftEnvSite) && hastags(er, RightEnvSite)
+
+        al, ar = AuxInds(di, dj)
+        @test !hasqns(al) && !hasqns(ar)
+        @test hastags(al, LeftAuxSite) && hastags(ar, RightAuxSite)
     end
 end
