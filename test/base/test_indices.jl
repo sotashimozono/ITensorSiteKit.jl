@@ -37,6 +37,33 @@ N = 3
         @test hastags(right, RightAuxSite)
     end
 
+    @testset "AuxInds SiteType (op on aux leg)" begin
+        # Mirror the physical S=1/2 site type onto the auxiliary/bra leg so
+        # operator construction works uniformly (issue #9).
+        left, right = AuxInds(N, χ; SiteType="S=1/2")
+        @test dim(left) == 2                       # dim fixed by SiteType
+        @test dim(right) == 2
+        @test hastags(left, LeftAuxSite)
+        @test hastags(right, RightAuxSite)
+
+        # op(...) now dispatches on the mirrored SiteType for both legs.
+        for name in ("Sz", "Sx", "Id", "S+", "S-")
+            @test op(name, left) isa ITensor
+            @test op(name, right) isa ITensor
+        end
+
+        # The operator really acts on the aux index (correct leg / dim).
+        Sz_left = op("Sz", left)
+        @test hasind(Sz_left, left)
+        @test hasind(Sz_left, left')
+
+        # Raw (default) auxiliary carrier is unchanged and carries no
+        # operator algebra: op(...) still fails there.
+        raw_left, = AuxInds(χ)
+        @test dim(raw_left) == χ
+        @test_throws Exception op("Sz", raw_left)
+    end
+
     @testset "LinkInds" begin
         sites = PhysInds(N, χ; SiteType="S=1/2")
         links = LinkInds(χ, sites)
@@ -105,6 +132,13 @@ end
         @test dim(left) == 5
         @test hastags(left, LeftAuxSite) && hastags(right, RightAuxSite)
         @test hasqns(AuxInds(N, u1)[1])
+
+        # Physical SiteType branch forwards `conserve_qns` to `siteind`,
+        # yielding a QN-conserving aux leg that still supports `op`.
+        ls, rs = AuxInds(χ; SiteType="S=1/2", conserve_qns=true)
+        @test hasqns(ls) && dim(ls) == 2 && hastags(ls, LeftAuxSite)
+        @test hasqns(rs) && hastags(rs, RightAuxSite)
+        @test op("Sz", ls) isa ITensor && op("Sz", rs) isa ITensor
     end
 
     @testset "LinkInds has no QN-blocks form (dense only)" begin

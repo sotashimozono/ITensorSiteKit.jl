@@ -141,20 +141,39 @@ end
 export EnvInds
 
 """
-    AuxInds(space::IndexSpace; dir=nothing)
+    AuxInds(space::IndexSpace; SiteType="Auxiliary", dir=nothing, kwargs...)
 
 Construct a pair `[left, right]` of auxiliary site indices, tagged with
 [`LeftAuxSite`](@ref) / [`RightAuxSite`](@ref). `space` is an
 [`IndexSpace`](@ref): an `Integer` for a dense carrier of that dimension, or
-a vector of `QN => degeneracy` blocks for a symmetric one. `dir`, if given,
-is forwarded to `Index` (see `_space_index`); the default `dir=nothing`
-reproduces the previous fixed behavior (`Index`'s own default, `Out`, for a
-QN `space`).
+a vector of `QN => degeneracy` blocks for a symmetric one.
+
+If `SiteType == "Auxiliary"` (default), the indices are raw carriers built
+directly from `space` — a bare auxiliary leg with no operator algebra
+(`op(name, aux)` is *not* defined on it). `dir`, if given, is forwarded to
+`Index` (see `_space_index`); the default `dir=nothing` reproduces the
+previous fixed behavior (`Index`'s own default, `Out`, for a QN `space`).
+
+Otherwise the indices are built via `siteind(SiteType; kwargs...)` (a
+standard ITensors site type, with `kwargs` such as `conserve_qns`
+forwarded) and then tagged with `LeftAuxSite`/`RightAuxSite`. This mirrors
+the physical site's `SiteType` onto the auxiliary/ancilla leg so that
+`op(name, aux)` works uniformly on physical and auxiliary legs — the
+intended path for purification / vectorised-density-matrix super-sites whose
+bra (ancilla) leg copies the physical Hilbert space. On this branch `space`
+and `dir` are both ignored (the dim is fixed by `SiteType`, and `siteind`
+has no `dir` keyword), exactly as in [`EnvInds`](@ref).
+
+```julia
+AuxInds(χ)                                        # dense raw carrier, dim χ
+AuxInds(2; SiteType="S=1/2")                      # S=1/2 leg; op("Sz", aux) works
+AuxInds(χ; SiteType="S=1/2", conserve_qns=true)   # QN-conserving S=1/2 leg
+```
 
     AuxInds(N::Int, space::IndexSpace; kwargs...)
 
 Three-argument form accepted for API symmetry; `N` is ignored. `kwargs`
-(including `dir`) are forwarded.
+(including `SiteType` and `dir`) are forwarded.
 
     AuxInds(left_bond::Index, right_bond::Index)
 
@@ -164,9 +183,16 @@ method — each output has the same `space` and `dir` as the corresponding
 bond, re-tagged to `LeftAuxSite`/`RightAuxSite` (the bond's `"Link"` tag is
 dropped since `sim` replaces the tag set). Works for dense and QN bonds.
 """
-function AuxInds(space::IndexSpace; dir=nothing)
-    sites_left_aux = _space_index(space, LeftAuxSite * ",Site"; dir=dir)
-    sites_right_aux = _space_index(space, RightAuxSite * ",Site"; dir=dir)
+function AuxInds(space::IndexSpace; SiteType="Auxiliary", dir=nothing, kwargs...)
+    if SiteType == "Auxiliary"
+        sites_left_aux = _space_index(space, LeftAuxSite * ",Site"; dir=dir)
+        sites_right_aux = _space_index(space, RightAuxSite * ",Site"; dir=dir)
+    else
+        sites_left_aux = siteind(SiteType; kwargs...)
+        sites_right_aux = siteind(SiteType; kwargs...)
+        sites_left_aux = addtags(sites_left_aux, LeftAuxSite)
+        sites_right_aux = addtags(sites_right_aux, RightAuxSite)
+    end
     return [sites_left_aux, sites_right_aux]
 end
 AuxInds(N::Int, space::IndexSpace; kwargs...) = AuxInds(space; kwargs...)
