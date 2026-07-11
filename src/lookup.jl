@@ -88,3 +88,57 @@ function aux_site_position(si::Vector{<:Index}, direction::Symbol)
 end
 aux_site_position(ψ::MPS, direction::Symbol) = aux_site_position(siteinds(ψ), direction)
 export aux_site_position
+
+"""
+    site_position(T, idx::Index) -> Union{Int,Nothing}
+
+Position (1-based) of `idx` within the site ordering of `T` (a
+`Vector{<:Index}` or `MPS`); `nothing` if `idx` is not present. The
+index-first counterpart of [`phys_site_position`](@ref) (which locates a
+site by its `n=<n>` tag) — use this when you already hold the `Index`.
+"""
+site_position(si::Vector{<:Index}, idx::Index) = findfirst(==(idx), si)
+site_position(ψ::MPS, idx::Index) = site_position(siteinds(ψ), idx)
+export site_position
+
+"""
+    classify_site_indices(T) -> Dict{Symbol,Vector{Index}}
+
+Group the site indices of `T` (a `Vector{<:Index}` or `MPS`) by their
+site-role tag into the buckets `:physical` ([`PhysSite`](@ref)),
+`:left_env` / `:right_env` ([`LeftEnvSite`](@ref)/[`RightEnvSite`](@ref)),
+`:left_aux` / `:right_aux` ([`LeftAuxSite`](@ref)/[`RightAuxSite`](@ref)),
+and `:other` (indices carrying none of the known site-role tags). Every
+input index lands in exactly one bucket and the original left-to-right
+order is preserved within each; all six keys are always present (possibly
+empty).
+"""
+function classify_site_indices(si::Vector{<:Index})
+    T = eltype(si)
+    out = Dict{Symbol,Vector{T}}(
+        :physical => T[],
+        :left_env => T[],
+        :right_env => T[],
+        :left_aux => T[],
+        :right_aux => T[],
+        :other => T[],
+    )
+    for i in si
+        if hastags(i, PhysSite)
+            push!(out[:physical], i)
+        elseif hastags(i, LeftEnvSite)
+            push!(out[:left_env], i)
+        elseif hastags(i, RightEnvSite)
+            push!(out[:right_env], i)
+        elseif hastags(i, LeftAuxSite)
+            push!(out[:left_aux], i)
+        elseif hastags(i, RightAuxSite)
+            push!(out[:right_aux], i)
+        else
+            push!(out[:other], i)
+        end
+    end
+    return out
+end
+classify_site_indices(ψ::MPS) = classify_site_indices(siteinds(ψ))
+export classify_site_indices
