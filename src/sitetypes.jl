@@ -10,7 +10,7 @@
 # - `conserve_qns` blocks carry `QN("Sz", 2m)` (integer half-units, so S=1/2 is
 #   `QN("Sz", ±1)` — the same units ITensors uses for S=1/2 and S=1).
 
-using ITensors: ITensors, SiteType, OpName, QN
+using ITensors: ITensors, SiteType, OpName, StateName, QN
 
 # Spin-S operator matrices in the `m = S, S-1, …, -S` basis. Closed-form ladder
 # elements ⟨m±1|S±|m⟩ = √(S(S+1) − m(m±1)); Sx=(S₊+S₋)/2, Sy=(S₊−S₋)/2i.
@@ -68,3 +68,12 @@ ITensors.op(::OpName"S-", ::SiteType"S=2") = copy(_OPS_S2.Sm)
 ITensors.op(::OpName"Sx", ::SiteType"S=2") = copy(_OPS_S2.Sx)
 ITensors.op(::OpName"Sy", ::SiteType"S=2") = copy(_OPS_S2.Sy)
 ITensors.op(::OpName"Sz2", ::SiteType"S=2") = copy(_OPS_S2.Sz2)
+
+# Named states for the extreme sublevels (the universal `Up`/`Dn` aliases).
+# Arbitrary sublevels are addressable by 1-based basis index (m = S, S-1, …, -S
+# order): `MPS(siteinds("S=3/2", N; conserve_qns=true), [1, 2, 4, …])` builds a
+# definite-flux product state with no StateName needed (integer basis-index path).
+ITensors.state(::StateName"Up", ::SiteType"S=3/2") = [1.0, 0.0, 0.0, 0.0]
+ITensors.state(::StateName"Dn", ::SiteType"S=3/2") = [0.0, 0.0, 0.0, 1.0]
+ITensors.state(::StateName"Up", ::SiteType"S=2") = [1.0, 0.0, 0.0, 0.0, 0.0]
+ITensors.state(::StateName"Dn", ::SiteType"S=2") = [0.0, 0.0, 0.0, 0.0, 1.0]

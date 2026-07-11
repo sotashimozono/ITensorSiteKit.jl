@@ -86,3 +86,27 @@ end
     Sm = mat("S-", s)
     @test Sp * Sm - Sm * Sp ≈ 2Sz atol = 1e-12
 end
+
+# High-spin QN product-state initialisation (issue #13). The core capability —
+# a definite-flux conserve_qns product MPS — is already covered by ITensors'
+# 1-based integer basis-index states (m = S, S-1, …, -S per index); `Up`/`Dn`
+# are convenience aliases for the extreme sublevels. Checked against the
+# independent closed form: total flux Sz = Σ 2m over the chosen indices.
+@testset "high-spin QN product-state init (integer + Up/Dn)" begin
+    using ITensorMPS: MPS
+    sz(ψ) = ITensors.val(flux(ψ), "Sz")
+    for (st, idxs, expect_sz) in (
+        ("S=3/2", [1, 2, 3, 4], 0),      # 3+1-1-3
+        ("S=3/2", [1, 1, 2, 2], 8),      # 3+3+1+1
+        ("S=2", [1, 2, 3, 4, 5], 0),     # 4+2+0-2-4
+        ("S=2", [1, 1, 2], 10),          # 4+4+2
+    )
+        sites = siteinds(st, length(idxs); conserve_qns=true)
+        @test sz(MPS(sites, idxs)) == expect_sz
+    end
+    # Up/Dn named aliases = extreme sublevels (m = ±S)
+    s32 = siteinds("S=3/2", 1; conserve_qns=true)[1]
+    @test sz(MPS([s32], ["Up"])) == 3 && sz(MPS([s32], ["Dn"])) == -3
+    s2 = siteinds("S=2", 1; conserve_qns=true)[1]
+    @test sz(MPS([s2], ["Up"])) == 4 && sz(MPS([s2], ["Dn"])) == -4
+end
