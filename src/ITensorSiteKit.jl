@@ -4,6 +4,7 @@ using ITensors
 using ITensorMPS
 
 include("tags.jl")
+include("sitetypes.jl")
 include("indices.jl")
 include("lookup.jl")
 
