@@ -64,3 +64,38 @@ end
     # On an env-only chain there are no aux tags, so lookup should return nothing.
     @test aux_site_position(sites, :left) === nothing
 end
+
+@testset "site_position (index → position)" begin
+    # every site index resolves to its own position; round-trips against the
+    # tag-based phys_site_position (independent method).
+    for (pos, i) in enumerate(sites)
+        @test site_position(sites, i) == pos
+    end
+    @test site_position(sites, phys[5]) == 6          # [envL, phys_1..N, envR]
+    @test site_position(ψ, envs[2]) == N + 2
+    @test site_position(sites, envs[1]) == 1
+    # phys site n's position matches the tag-based lookup
+    @test site_position(sites, phys[7]) == phys_site_position(sites, 7)
+    # absent index → nothing
+    @test site_position(sites, auxs[1]) === nothing
+end
+
+@testset "classify_site_indices" begin
+    c = classify_site_indices(sites)
+    @test c[:physical] == phys
+    @test c[:left_env] == [envs[1]]
+    @test c[:right_env] == [envs[2]]
+    @test isempty(c[:left_aux]) && isempty(c[:right_aux]) && isempty(c[:other])
+    # partition: buckets are disjoint and cover every input index
+    total = sum(length, values(c))
+    @test total == length(sites)
+
+    ca = classify_site_indices(sites_aux)
+    @test ca[:left_aux] == [auxs[1]]
+    @test ca[:right_aux] == [auxs[2]]
+    @test ca[:physical] == phys
+    @test sum(length, values(ca)) == length(sites_aux)
+
+    # MPS dispatch agrees with the site-vector form
+    @test classify_site_indices(ψ)[:physical] == phys
+end
